@@ -1,1 +1,132 @@
+#########the correlation of immune or pathogen detections and miRNAs#######################
 
+library(psych)
+idata <- read.table(file = "cytokine and miRNA.txt", header=T,sep="\t")
+Case3=idata[,6:101];
+
+p=plot(Case3) 
+corr.test(Case3);
+y=idata[,3];
+fm=lm(y~.,data=Case3) 
+summary(fm)
+fm.step=step(fm,direction="both")
+n=plot(fm.step);
+confint=confint(fm.step)
+
+summary(fm.step)
+
+#################################################################################
+df=data.frame(name="1",r="1");
+cytodata <- read.table(file = "immune cell and miRNA.txt", header=T,sep="\t")
+y=cytodata[,1];
+i=1;
+for(i in 1:96){
+  j=i+6
+  Case3=as.data.frame(cytodata[,j]);
+  fm=lm(y~.,data=Case3) 
+  df[i,]=c(names(cytodata)[j],summary(fm)$r.squared)
+}
+
+r_mtx=merge(df,r_mtx,by="name",all=TRUE);
+names(r_mtx)[2]=names(cytodata)[6]
+
+write.table(r_mtx,file="immune_miR_R_matrix.txt",sep="\t",row.names=F);
+
+
+####cor.test to calculate immune detection and miRNAs matrix#########################
+
+cytodata <- read.table(file = "CRP and miRNA.txt", header=T,sep="\t")
+n=1
+for(n in 1:4){
+  y=cytodata[,n];
+  df=data.frame(name="1",r="1");
+  names(df)=c("name",names(cytodata)[n])
+  i=1;
+  for(i in 1:96){
+    j=i+4
+    x=cytodata[,j];
+    df[i,2]=cor(x, y,  method = "pearson", use = "complete.obs")
+    df[i,1]=names(cytodata)[j];
+    
+  }
+  #r_mtx=df;
+  r_mtx=merge(df,r_mtx,by="name",all=TRUE);
+  
+}
+
+write.table(r_mtx,file="immune_miR_cortest_matrix.txt",sep="\t",row.names=F);
+
+############heatmap#######################################################################
+
+library(readr)
+library(plyr)
+library(readxl)
+library(RColorBrewer)
+library(pheatmap)
+matrix<-read.table("immune_miR_cortest_matrix.txt",header = T,sep = "\t",row.names = 1) 
+matrix[is.na(matrix)] <- 0 
+
+group<-read.table("immune_miR_R_matrix_group.txt",header = T,sep = "\t",row.names = 1) 
+
+annotation_row<- data.frame(subgroup = group$group, 
+                            row.names = rownames(group))
+
+group_color <- c("#E74C3C","#9B59B6","#2980B9","#1ABC9C") 
+names(group_color) <- c("Hematopoietic","immune.cell","cytokine","pathogen") 
+
+
+ann_colors <- list(group=group_color) 
+
+matrix_2<-matrix
+
+#matrix_2<-data.frame(scale(matrix,center = T)) 
+
+p=pheatmap(matrix_2,
+         scale="row",
+         color = colorRampPalette(c("blue", "white","red" ))(1000), 
+         annotation_row = annotation_row,
+         annotation_colors = ann_colors, 
+         fontsize_col = 10, 
+         cluster_rows = T,
+         cluster_cols = T,
+         show_rownames =T, 
+         show_colnames = F,
+         fontsize = 10,
+         cellwidth=5,
+         cellheight=10, 
+         main = "Heatmap") 
+
+ggsave(p,filename = "immune_miR_cortest_matrix_heatmap_2.pdf",height = 8,width = 12);
+
+###################forest plot########################################################################
+library(ggplot2)
+
+white_cell<-read.table("il8.txt",header = T,sep = "\t") ;
+
+p <- ggplot(white_cell, aes(Estimate, primer))+ 
+  
+  geom_point(aes(size=P_value, col=group)) +
+  
+  geom_errorbarh(aes(xmax =Estimate+Std.Error, xmin = Estimate-Std.Error),height = 0.4)+
+  
+  geom_vline(aes(xintercept=0))+
+  
+  labs(title="IL8")+
+  
+  xlab('Estimate') + ylab("") + theme_bw() + theme(legend.position ="right") +
+  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        
+        
+        axis.text=element_text(size=10, face = "bold"),
+        
+        legend.text=element_text(size=10))
+
+
+##,plot.title = element_text(face = "bold", size = 10)  ,face = "bold"
+
+
+ggsave(p,filename = "IL8.pdf",height = 3,width = 5);
+
+
+  
