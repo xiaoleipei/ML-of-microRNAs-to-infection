@@ -1,132 +1,117 @@
-#########the correlation of immune or pathogen detections and miRNAs#######################
-
-library(psych)
-idata <- read.table(file = "cytokine and miRNA.txt", header=T,sep="\t")
-Case3=idata[,6:101];
-
-p=plot(Case3) 
-corr.test(Case3);
-y=idata[,3];
-fm=lm(y~.,data=Case3) 
-summary(fm)
-fm.step=step(fm,direction="both")
-n=plot(fm.step);
-confint=confint(fm.step)
-
-summary(fm.step)
-
-#################################################################################
-df=data.frame(name="1",r="1");
-cytodata <- read.table(file = "immune cell and miRNA.txt", header=T,sep="\t")
-y=cytodata[,1];
-i=1;
-for(i in 1:96){
-  j=i+6
-  Case3=as.data.frame(cytodata[,j]);
-  fm=lm(y~.,data=Case3) 
-  df[i,]=c(names(cytodata)[j],summary(fm)$r.squared)
-}
-
-r_mtx=merge(df,r_mtx,by="name",all=TRUE);
-names(r_mtx)[2]=names(cytodata)[6]
-
-write.table(r_mtx,file="immune_miR_R_matrix.txt",sep="\t",row.names=F);
-
-
-####cor.test to calculate immune detection and miRNAs matrix#########################
-
-cytodata <- read.table(file = "CRP and miRNA.txt", header=T,sep="\t")
-n=1
-for(n in 1:4){
-  y=cytodata[,n];
-  df=data.frame(name="1",r="1");
-  names(df)=c("name",names(cytodata)[n])
-  i=1;
-  for(i in 1:96){
-    j=i+4
-    x=cytodata[,j];
-    df[i,2]=cor(x, y,  method = "pearson", use = "complete.obs")
-    df[i,1]=names(cytodata)[j];
-    
+#######################SVM algorithm################################################################
+logi_vdata=svmvdata
+logi_vdata[,97]=as.numeric(logi_vdata[,97]);
+for(i in 1:231){
+  if(vdata[i,97]==2){
+    logi_vdata[i,97]="0";
   }
-  #r_mtx=df;
-  r_mtx=merge(df,r_mtx,by="name",all=TRUE);
-  
 }
+logi_vdata[,97]=as.factor(logi_vdata[,97]);
 
-write.table(r_mtx,file="immune_miR_cortest_matrix.txt",sep="\t",row.names=F);
+dig=as.factor(logi_vdata[,97]);
+logi_sera <- glm(dig~hsa.miR.769.5p+
+                   hsa.miR.451+
+                   hsa.miR.331.3p+
+                   hsa.miR.210.5p+
+                   hsa.miR.155.5p+
+                   hsa.miR.124.5p+
+                   hsa.miR.370.5p+
+                   hsa.miR.183.5p+
+                   hsa.miR.23a.5p+
+                   hsa.miR.31.5p+
+                   hsa.miR.4496+
+                   hsa.let.7b.5p+
+                   hsa.miR.16.1.3p+
+                   hsa.miR.128.1.5p+
+                   hsa.miR.33a.5p+
+                   hsa.miR.32.5p+
+                   hsa.miR.203a.5p+
+                   hsa.miR.26b.5p+
+                   hsa.miR.96.5p+
+                   hsa.miR.329.5p+
+                   hsa.miR.582.5p, data=logi_vdata[,-97],family = binomial(link = 'logit'));
 
-############heatmap#######################################################################
+prob<-predict(object =logi_sera,newdata=logi_vdata[,-97],type = "response")
 
-library(readr)
-library(plyr)
-library(readxl)
-library(RColorBrewer)
-library(pheatmap)
-matrix<-read.table("immune_miR_cortest_matrix.txt",header = T,sep = "\t",row.names = 1) 
-matrix[is.na(matrix)] <- 0 
+pred<-ifelse(prob>=0.5,"1","0")
+pred<-factor(pred,levels = c("0","1"),order=TRUE)
+logi.perf<-table(logi_vdata[,97],pred)
+logi.perf
 
-group<-read.table("immune_miR_R_matrix_group.txt",header = T,sep = "\t",row.names = 1) 
-
-annotation_row<- data.frame(subgroup = group$group, 
-                            row.names = rownames(group))
-
-group_color <- c("#E74C3C","#9B59B6","#2980B9","#1ABC9C") 
-names(group_color) <- c("Hematopoietic","immune.cell","cytokine","pathogen") 
-
-
-ann_colors <- list(group=group_color) 
-
-matrix_2<-matrix
-
-#matrix_2<-data.frame(scale(matrix,center = T)) 
-
-p=pheatmap(matrix_2,
-         scale="row",
-         color = colorRampPalette(c("blue", "white","red" ))(1000), 
-         annotation_row = annotation_row,
-         annotation_colors = ann_colors, 
-         fontsize_col = 10, 
-         cluster_rows = T,
-         cluster_cols = T,
-         show_rownames =T, 
-         show_colnames = F,
-         fontsize = 10,
-         cellwidth=5,
-         cellheight=10, 
-         main = "Heatmap") 
-
-ggsave(p,filename = "immune_miR_cortest_matrix_heatmap_2.pdf",height = 8,width = 12);
-
-###################forest plot########################################################################
-library(ggplot2)
-
-white_cell<-read.table("il8.txt",header = T,sep = "\t") ;
-
-p <- ggplot(white_cell, aes(Estimate, primer))+ 
-  
-  geom_point(aes(size=P_value, col=group)) +
-  
-  geom_errorbarh(aes(xmax =Estimate+Std.Error, xmin = Estimate-Std.Error),height = 0.4)+
-  
-  geom_vline(aes(xintercept=0))+
-  
-  labs(title="IL8")+
-  
-  xlab('Estimate') + ylab("") + theme_bw() + theme(legend.position ="right") +
-  
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        
-        
-        axis.text=element_text(size=10, face = "bold"),
-        
-        legend.text=element_text(size=10))
+logi_accuracy_2 <- sum(diag(logi.perf))/sum(logi.perf)
+logi_accuracy_2
 
 
-##,plot.title = element_text(face = "bold", size = 10)  ,face = "bold"
+write.table(sera,file="sera_infect_uninfect_rawdata.txt",sep="\t",row.names=F);
+
+svmdata <- read.table(file = "sera_infect_uninfect_sera1.txt", header=T,sep="\t")
+
+ind=sample(2,nrow(svmdata),replace=TRUE, prob=c(0.8,0.2))  
+
+svm_model_2 <- svm(x=svmdata[ind==1,-c(1,2,3,4)],y=svmdata[ind==1,3],type = 'nu-classification', kernel = 'radial',gamma = 0.01,cost=10)
+svm_pred_2 <- predict(object = svm_model_2, newdata = svmdata[ind==2,-c(1,2,3,4)])
+svm_Freq_2 <- table(svmdata[ind==2,3], svm_pred_2)
+svm_Freq_2
+
+svm_accuracy_2 <- sum(diag(svm_Freq_2))/sum(svm_Freq_2)
+svm_accuracy_2
+
+svm_model_2 <- svm(x=vdata[,-97],y=vdata[,97],type = 'nu-classification', kernel = 'radial',gamma = 0.01,cost=10,cross=1)
+svm_pred_2 <- predict(object = svm_model_k, newdata = vdata[,-97],type="probabilities")
+svm_Freq_2 <- table(vdata[,97], svm_pred_2)
+svm_Freq_2
+
+svm.perf<- table(vdata$dig,
+                 svm_pred_2, dnn=c("Actual", "Predicted"))
+svm.perf
+
+svm_accuracy_2 <- sum(diag(svm_Freq_2))/sum(svm_Freq_2)
+svm_accuracy_2
+
+write.table(t10,file="sera_infect_uninfect_error.txt",sep="\t",row.names=F);
+
+## ROC curve
+p=ggplot(data=NULL, mapping = aes(d = svm_pred_2[,1], m = svm_pred_2[,2])) + 
+  geom_roc(n.cuts = 1) + 
+  style_roc()+
+  ggsci::scale_color_lancet();
+auc<-calc_auc(p);
+
+ggsave(p,filename = "0702sera_rf_sera.pdf",height = 4,width = 5)
+
+#training set and testing set
+ind=sample(2,nrow(svmdata),replace=TRUE, prob=c(0.67,0.33))  
+# prediction
+dig<-as.factor(svmdata[ind==1,3]);
+sera2.rf = randomForest(dig~hsa.miR.769.5p+
+                          hsa.miR.451+
+                          hsa.miR.331.3p+
+                          hsa.miR.210.5p+
+                          hsa.miR.155.5p+
+                          hsa.miR.124.5p+
+                          hsa.miR.370.5p+
+                          hsa.miR.183.5p+
+                          hsa.miR.23a.5p+
+                          hsa.miR.31.5p+
+                          hsa.miR.4496+
+                          hsa.let.7b.5p+
+                          hsa.miR.16.1.3p+
+                          hsa.miR.128.1.5p+
+                          hsa.miR.33a.5p+
+                          hsa.miR.32.5p+
+                          hsa.miR.203a.5p+
+                          hsa.miR.26b.5p+
+                          hsa.miR.96.5p+
+                          hsa.miR.329.5p+
+                          hsa.miR.582.5p, svmdata[ind==1,-c(1,2,3,4)], ntree=1000, 
+                        nPerm=10, mtry=3, proximity=FALSE, importance=TRUE)  
+print(sera.rf)  
+
+sera.pred = predict(sera2.rf, svmdata[ind==2,-c(1,2,3,4)] )  
+
+t10=cbind(svmdata[ind==2,c(1,2,3,4)],sera.pred)
 
 
-ggsave(p,filename = "IL8.pdf",height = 3,width = 5);
-
-
-  
+rf.perf<- table(svmdata[ind==2,]$dig,
+                sera.pred, dnn=c("Actual", "Predicted"))
+rf.perf
