@@ -1,1 +1,72 @@
+#############################vlnplot to infect/uninfect the miRNA level in serum#######################
+
+m1 <- read.table(file = "microRNA expression matrix.txt", header=T,sep="\t")
+i=1
+m2=as.matrix(m1[,6:101])
+for(i in 1:432){
+  m1[i,104]=mean(m2[i,1:96],0.3)
+  
+};
+
+m3=m1;
+####for balf
+m3[1:56,6:101]=2^(m1[1:56,104]-m1[1:56,6:101]+10);
+m3=m3[1:56,];
+###for serum
+m3[57:432,6:101]=2^(m1[57:432,104]-m1[57:432,6:101]+10);
+m3=m3[57:432,];
+
+
+i=6;
+for(i in 6:101){
+  m4=cbind(m3[,4],m3[,i]);
+  m4=as.data.frame(m4);
+  m4[,2]=as.numeric(m4[,2])
+  t=unique(m4[,1]);
+  j=1
+  for(j in 1:376){
+    if(m4[j,1]=="infect"){
+      m4[j,3]=2;
+    };
+    if(m4[j,1]=="uninfect"){
+      m4[j,3]=1;
+    };
+    if(m4[j,1]=="infect-early stage"){
+      m4[j,3]=3;
+    };
+    if(m4[j,1]=="infect-middle stage"){
+      m4[j,3]=4;
+    };
+    if(m4[j,1]=="infect-late stage"){
+      m4[j,3]=5;
+    };
+    if(m4[j,1]=="unknown"){
+      m4[j,3]=6;
+    };
+    
+  }
+  names(m4)=c("subgroup","el","order")
+  m4=m4[order(m4[,3]),]
+  m4=m4[-c(368,369,370,371,372,373,374,375,376),]
+  ##exclude the extreme value
+  QL<- quantile(m4[,2], probs = 0.25)
+  QU <- quantile(m4[,2], probs = 0.75)
+  QU_QL <- QU-QL;
+  m4=m4[(which(m4[,2] < QU + 4*QU_QL)),];
+  
+  m4$subgroup <- factor(m4$subgroup, levels=c("uninfect", "infect","infect-early stage","infect-middle stage","infect-late stage"), ordered=TRUE)
+  #"infect-early stage","infect-middle stage","infect-late stage"
+  p=ggplot(m4, aes(x=subgroup, y=el,fill=subgroup)) +
+     geom_violin(trim=FALSE)+
+     theme_bw()+
+     geom_jitter(alpha=1)+
+     labs(title=colnames(m3)[i], x="group",y = "expression")+
+     theme(axis.text.y=element_blank(),
+             axis.ticks.y=element_blank()) 
+     #scale_y_continuous(limits=c(-5, 50));
+  ggsave(file=paste(colnames(m3)[i], "_serum.pdf",sep=""), p, width=6 ,height=5);
+
+}
+
+
 
